@@ -2,10 +2,14 @@ const elements = {
   status: document.getElementById('update-status'),
   update: document.getElementById('update-text'),
   error: document.getElementById('error-message'),
+  hostButton: document.getElementById('host-button'),
+  hostLight: document.getElementById('host-light'),
+  hostValues: document.getElementById('host-values'),
   count: document.getElementById('container-count'),
   search: document.getElementById('container-search'),
   list: document.getElementById('container-list'),
   name: document.getElementById('selected-name'),
+  kind: document.getElementById('selected-kind'),
   state: document.getElementById('selected-state'),
   id: document.getElementById('selected-id'),
   cpu: document.getElementById('current-cpu'),
@@ -19,25 +23,30 @@ const elements = {
 }
 
 let selectedHours = 6
-let selectedID = null
+let selectedID = 'host'
 let records = []
 let catalog = []
 let latest = null
 let cpuPlot
 let memoryPlot
 let loading = false
+let historyLoaded = false
 
 const numberFormat = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 2, minimumFractionDigits: 2 })
 const timeFormat = new Intl.DateTimeFormat('zh-CN', {
-  month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
+  timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit',
 })
+const axisTimeFormat = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' })
 
 function cpuText(value) {
   return value == null ? '—' : `${numberFormat.format(value)}%`
 }
 
 function memoryText(value) {
-  return value == null ? '—' : `${numberFormat.format(value / 1048576)} MiB`
+  if (value == null) return '—'
+  return value >= 1073741824
+    ? `${numberFormat.format(value / 1073741824)} GiB`
+    : `${numberFormat.format(value / 1048576)} MiB`
 }
 
 function stateText(state) {
@@ -93,12 +102,18 @@ function makeCatalog() {
     if ((a.state === 'running') !== (b.state === 'running')) return a.state === 'running' ? -1 : 1
     return (b.memory_bytes || 0) - (a.memory_bytes || 0) || a.name.localeCompare(b.name)
   })
-  if (!catalog.some((item) => item.id === selectedID)) {
-    selectedID = catalog[0]?.id || null
+  if (selectedID !== 'host' && !catalog.some((item) => item.id === selectedID)) {
+    selectedID = 'host'
   }
 }
 
 function renderList() {
+  elements.hostButton.classList.toggle('active', selectedID === 'host')
+  const host = latest?.host
+  elements.hostLight.classList.toggle('running', Boolean(host))
+  elements.hostValues.textContent = host
+    ? `CPU ${cpuText(host.cpu_percent)}    内存 ${memoryText(host.memory_bytes)}`
+    : '等待采样'
   const query = elements.search.value.trim().toLowerCase()
   const visible = catalog.filter((item) => item.name.toLowerCase().includes(query))
   elements.count.textContent = String(catalog.length)
@@ -165,9 +180,10 @@ function makePlot(node, readout, color, unit) {
         stroke: colors.text,
         grid: { stroke: colors.grid, width: 1 },
         ticks: { stroke: colors.grid },
-        values: (_, values) => values.map((value) => new Date(value * 1000).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })),
+        values: (_, values) => values.map((value) => axisTimeFormat.format(new Date(value * 1000))),
       },
       {
+        size: unit === '%' ? 54 : 82,
         stroke: colors.text,
         grid: { stroke: colors.grid, width: 1 },
         ticks: { stroke: colors.grid },
@@ -196,13 +212,17 @@ function createCharts() {
 }
 
 function renderDetail() {
-  const selected = catalog.find((item) => item.id === selectedID)
-  elements.name.textContent = selected?.name || '请选择容器'
-  elements.id.textContent = selected ? selected.id.slice(0, 12) : '—'
-  elements.state.textContent = selected ? stateText(selected.state) : '—'
-  elements.state.className = `state-badge${selected?.state === 'running' ? ' running' : ''}`
-  elements.cpu.textContent = selected?.state === 'running' ? cpuText(selected.cpu_percent) : '—'
-  elements.memory.textContent = selected?.state === 'running' ? memoryText(selected.memory_bytes) : '—'
+  const isHost = selectedID === 'host'
+  const selected = isHost ? latest?.host : catalog.find((item) => item.id === selectedID)
+  elements.kind.textContent = isHost ? '整机概览' : '当前容器'
+  elements.name.textContent = isHost ? '宿主机' : selected?.name || '请选择容器'
+  elements.id.textContent = isHost
+    ? `含系统进程与容器 · 总内存 ${memoryText(selected?.memory_total_bytes)}`
+    : selected ? selected.id.slice(0, 12) : '—'
+  elements.state.textContent = isHost ? '本机' : selected ? stateText(selected.state) : '—'
+  elements.state.className = `state-badge${isHost || selected?.state === 'running' ? ' running' : ''}`
+  elements.cpu.textContent = isHost || selected?.state === 'running' ? cpuText(selected?.cpu_percent) : '—'
+  elements.memory.textContent = isHost || selected?.state === 'running' ? memoryText(selected?.memory_bytes) : '—'
 
   const now = Date.now()
   const start = now - selectedHours * 3600000
@@ -212,7 +232,7 @@ function renderDetail() {
   let previousTime = null
   for (const record of records) {
     if (record.time < start || record.time > now) continue
-    const metric = record.containers.find((item) => item.id === selectedID)
+    const metric = isHost ? record.host : record.containers.find((item) => item.id === selectedID)
     if (!metric) continue
     const time = record.time / 1000
     if (previousTime !== null && time - previousTime > 90) {
@@ -255,13 +275,20 @@ async function load() {
   loading = true
   try {
     const now = Date.now()
-    const [newLatest, yesterday, today] = await Promise.all([
-      readLatest(),
-      readDay(utcDay(now - 86400000)),
-      readDay(utcDay(now)),
-    ])
+    const newLatest = await readLatest()
+    const lastTime = records.at(-1)?.time
+    if (!historyLoaded || (newLatest && (!lastTime || newLatest.time - lastTime > 90000 || utcDay(newLatest.time) !== utcDay(lastTime)))) {
+      const [yesterday, today] = await Promise.all([
+        readDay(utcDay(now - 86400000)),
+        readDay(utcDay(now)),
+      ])
+      records = [...yesterday, ...today].filter((record) => record.time >= now - 86400000).sort((a, b) => a.time - b.time)
+      historyLoaded = true
+    } else if (newLatest && newLatest.time > lastTime) {
+      records.push(newLatest)
+      records = records.filter((record) => record.time >= now - 86400000)
+    }
     latest = newLatest
-    records = [...yesterday, ...today].sort((a, b) => a.time - b.time)
     makeCatalog()
     renderStatus()
     renderList()
@@ -285,6 +312,11 @@ document.querySelectorAll('[data-hours]').forEach((button) => {
   })
 })
 elements.search.addEventListener('input', renderList)
+elements.hostButton.addEventListener('click', () => {
+  selectedID = 'host'
+  renderList()
+  renderDetail()
+})
 
 createCharts()
 const resizeObserver = new ResizeObserver(() => {

@@ -24,17 +24,38 @@ type Metric struct {
 	RawCPU      *RawCPU  `json:"raw_cpu,omitempty"`
 }
 
+type HostRawCPU struct {
+	Total uint64 `json:"total"`
+	Idle  uint64 `json:"idle"`
+}
+
+type HostMetric struct {
+	CPUPercent       *float64    `json:"cpu_percent"`
+	MemoryBytes      uint64      `json:"memory_bytes"`
+	MemoryTotalBytes uint64      `json:"memory_total_bytes"`
+	RawCPU           *HostRawCPU `json:"raw_cpu"`
+}
+
 type Record struct {
-	Time       int64    `json:"time"`
-	Containers []Metric `json:"containers"`
+	Time       int64       `json:"time"`
+	Host       *HostMetric `json:"host,omitempty"`
+	Containers []Metric    `json:"containers"`
 }
 
 func Run(ctx context.Context, client *docker.Client, previous *Record) (Record, []error, error) {
+	var previousHost *HostMetric
+	if previous != nil {
+		previousHost = previous.Host
+	}
+	host, err := sampleHost(previousHost)
+	if err != nil {
+		return Record{}, nil, fmt.Errorf("读取整机资源: %w", err)
+	}
 	containers, err := client.List(ctx)
 	if err != nil {
 		return Record{}, nil, fmt.Errorf("读取容器列表: %w", err)
 	}
-	record := Record{Time: time.Now().UTC().UnixMilli(), Containers: make([]Metric, len(containers))}
+	record := Record{Time: time.Now().UTC().UnixMilli(), Host: host, Containers: make([]Metric, len(containers))}
 	previousCPU := make(map[string]*RawCPU)
 	if previous != nil {
 		for _, item := range previous.Containers {

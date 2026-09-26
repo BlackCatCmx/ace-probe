@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light dark" />
-    <title>Ace Probe · 容器资源</title>
+    <title>Ace Probe · 服务器资源</title>
     <link rel="stylesheet" href="./vendor/uPlot.min.css" />
     <link rel="stylesheet" href="./app.css" />
     <script defer src="./vendor/uPlot.iife.min.js"></script>
@@ -17,7 +17,7 @@
           <div class="brand-icon" aria-hidden="true"><span></span><span></span><span></span></div>
           <div>
             <div class="eyebrow">ACE PROBE</div>
-            <h1>容器资源</h1>
+            <h1>服务器资源</h1>
           </div>
         </div>
         <div class="update-status" id="update-status" role="status">
@@ -29,7 +29,7 @@
       <div class="toolbar">
         <div>
           <div class="toolbar-title">使用趋势</div>
-          <div class="toolbar-description">查看每个 Docker 容器的 CPU 与内存变化</div>
+          <div class="toolbar-description">查看宿主机与各 Docker 容器的 CPU、内存变化</div>
         </div>
         <div class="range-group" aria-label="时间范围">
           <button type="button" data-hours="2">2 小时</button>
@@ -43,6 +43,11 @@
 
       <main class="dashboard">
         <aside class="sidebar panel">
+          <div class="section-heading overview-heading"><h2>总览</h2></div>
+          <button type="button" id="host-button" class="container-item host-item active">
+            <span class="container-item-top"><span id="host-light" class="mini-state"></span><span class="container-item-name">宿主机</span></span>
+            <span id="host-values" class="container-item-values">等待采样</span>
+          </button>
           <div class="section-heading">
             <h2>容器</h2>
             <span id="container-count" class="count">0</span>
@@ -56,10 +61,10 @@
           </div>
         </aside>
 
-        <section class="detail" aria-label="容器资源曲线">
+        <section class="detail" aria-label="服务器资源曲线">
           <div class="summary panel">
             <div class="summary-name">
-              <div class="eyebrow">当前容器</div>
+              <div class="eyebrow" id="selected-kind">当前范围</div>
               <div class="summary-title-row">
                 <h2 id="selected-name">请选择容器</h2>
                 <span id="selected-state" class="state-badge">—</span>
@@ -105,7 +110,7 @@
           </div>
         </section>
       </main>
-      <footer>数据每分钟采集一次 · 时间按本地时区显示</footer>
+      <footer>数据每分钟采集一次 · 时间均为 UTC+8</footer>
     </div>
   </body>
 </html>
