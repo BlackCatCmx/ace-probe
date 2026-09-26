@@ -1,0 +1,10 @@
+[Unit]
+Description=Ace Probe container metrics collection
+After=docker.service
+
+[Service]
+Type=oneshot
+User=ace-probe
+EnvironmentFile=/etc/ace-probe.env
+ExecStart=/usr/local/bin/ace-probe -docker-socket ${ACE_PROBE_DOCKER_SOCKET} -output-dir ${ACE_PROBE_OUTPUT_DIR}
+TimeoutStartSec=55

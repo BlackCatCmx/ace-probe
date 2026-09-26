@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Ace Probe · 容器资源</title>
+    <link rel="stylesheet" href="./vendor/uPlot.min.css" />
+    <link rel="stylesheet" href="./app.css" />
+    <script defer src="./vendor/uPlot.iife.min.js"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header class="page-header">
+        <div class="brand">
+          <div class="brand-icon" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div>
+            <div class="eyebrow">ACE PROBE</div>
+            <h1>容器资源</h1>
+          </div>
+        </div>
+        <div class="update-status" id="update-status" role="status">
+          <span class="status-light"></span>
+          <span id="update-text">正在读取数据</span>
+        </div>
+      </header>
+
+      <div class="toolbar">
+        <div>
+          <div class="toolbar-title">使用趋势</div>
+          <div class="toolbar-description">查看每个 Docker 容器的 CPU 与内存变化</div>
+        </div>
+        <div class="range-group" aria-label="时间范围">
+          <button type="button" data-hours="2">2 小时</button>
+          <button type="button" data-hours="6" class="active">6 小时</button>
+          <button type="button" data-hours="12">12 小时</button>
+          <button type="button" data-hours="24">24 小时</button>
+        </div>
+      </div>
+
+      <div id="error-message" class="error-message" role="alert" hidden></div>
+
+      <main class="dashboard">
+        <aside class="sidebar panel">
+          <div class="section-heading">
+            <h2>容器</h2>
+            <span id="container-count" class="count">0</span>
+          </div>
+          <label class="search-box">
+            <span class="search-icon" aria-hidden="true">⌕</span>
+            <input id="container-search" type="search" placeholder="搜索容器" autocomplete="off" />
+          </label>
+          <div id="container-list" class="container-list" aria-label="容器列表">
+            <p class="list-empty">正在读取容器…</p>
+          </div>
+        </aside>
+
+        <section class="detail" aria-label="容器资源曲线">
+          <div class="summary panel">
+            <div class="summary-name">
+              <div class="eyebrow">当前容器</div>
+              <div class="summary-title-row">
+                <h2 id="selected-name">请选择容器</h2>
+                <span id="selected-state" class="state-badge">—</span>
+              </div>
+              <div id="selected-id" class="container-id">—</div>
+            </div>
+            <div class="summary-metrics">
+              <div class="metric-tile cpu-tile">
+                <span>CPU</span>
+                <strong id="current-cpu">—</strong>
+              </div>
+              <div class="metric-tile memory-tile">
+                <span>内存</span>
+                <strong id="current-memory">—</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-grid">
+            <article class="chart-card panel">
+              <div class="chart-heading">
+                <div>
+                  <div class="chart-kicker cpu-color">CPU</div>
+                  <h3>处理器占用</h3>
+                </div>
+                <div id="cpu-readout" class="chart-readout">—</div>
+              </div>
+              <div id="cpu-chart" class="chart"></div>
+              <div id="cpu-empty" class="chart-empty">当前时间范围暂无数据</div>
+            </article>
+
+            <article class="chart-card panel">
+              <div class="chart-heading">
+                <div>
+                  <div class="chart-kicker memory-color">MEMORY</div>
+                  <h3>内存占用</h3>
+                </div>
+                <div id="memory-readout" class="chart-readout">—</div>
+              </div>
+              <div id="memory-chart" class="chart"></div>
+              <div id="memory-empty" class="chart-empty">当前时间范围暂无数据</div>
+            </article>
+          </div>
+        </section>
+      </main>
+      <footer>数据每分钟采集一次 · 时间按本地时区显示</footer>
+    </div>
+  </body>
+</html>

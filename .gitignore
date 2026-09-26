@@ -1,0 +1,7 @@
+/temp/
+/.claude/
+/web/data/
+/ace-probe
+/ace-probe.exe
+*.test
+*.out
