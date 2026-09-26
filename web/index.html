@@ -26,19 +26,6 @@
         </div>
       </header>
 
-      <div class="toolbar">
-        <div>
-          <div class="toolbar-title">使用趋势</div>
-          <div class="toolbar-description">查看宿主机与各 Docker 容器的 CPU、内存变化</div>
-        </div>
-        <div class="range-group" aria-label="时间范围">
-          <button type="button" data-hours="2">2 小时</button>
-          <button type="button" data-hours="6" class="active">6 小时</button>
-          <button type="button" data-hours="12">12 小时</button>
-          <button type="button" data-hours="24">24 小时</button>
-        </div>
-      </div>
-
       <div id="error-message" class="error-message" role="alert" hidden></div>
 
       <main class="dashboard">
@@ -63,23 +50,31 @@
 
         <section class="detail" aria-label="服务器资源曲线">
           <div class="summary panel">
-            <div class="summary-name">
-              <div class="eyebrow" id="selected-kind">当前范围</div>
-              <div class="summary-title-row">
-                <h2 id="selected-name">请选择容器</h2>
-                <span id="selected-state" class="state-badge">—</span>
+            <div class="summary-main">
+              <div class="summary-name">
+                <div class="eyebrow" id="selected-kind">当前范围</div>
+                <div class="summary-title-row">
+                  <h2 id="selected-name">请选择容器</h2>
+                  <span id="selected-state" class="state-badge">—</span>
+                </div>
+                <div id="selected-id" class="container-id">—</div>
               </div>
-              <div id="selected-id" class="container-id">—</div>
+              <div class="summary-metrics">
+                <div class="metric-tile cpu-tile">
+                  <span>CPU</span>
+                  <strong id="current-cpu">—</strong>
+                </div>
+                <div class="metric-tile memory-tile">
+                  <span>内存</span>
+                  <strong id="current-memory">—</strong>
+                </div>
+              </div>
             </div>
-            <div class="summary-metrics">
-              <div class="metric-tile cpu-tile">
-                <span>CPU</span>
-                <strong id="current-cpu">—</strong>
-              </div>
-              <div class="metric-tile memory-tile">
-                <span>内存</span>
-                <strong id="current-memory">—</strong>
-              </div>
+            <div class="range-group" aria-label="时间范围">
+              <button type="button" data-hours="2">2 小时</button>
+              <button type="button" data-hours="6" class="active">6 小时</button>
+              <button type="button" data-hours="12">12 小时</button>
+              <button type="button" data-hours="24">24 小时</button>
             </div>
           </div>
 

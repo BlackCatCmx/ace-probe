@@ -1,10 +1,14 @@
 [Unit]
-Description=Ace Probe container metrics collection
+Description=Ace Probe container metrics collector
 After=docker.service
 
 [Service]
-Type=oneshot
+Type=simple
 User=ace-probe
 EnvironmentFile=/etc/ace-probe.env
 ExecStart=/usr/local/bin/ace-probe -docker-socket ${ACE_PROBE_DOCKER_SOCKET} -output-dir ${ACE_PROBE_OUTPUT_DIR}
-TimeoutStartSec=55
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target
