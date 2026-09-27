@@ -17,58 +17,39 @@
           <div class="brand-icon" aria-hidden="true"><span></span><span></span><span></span></div>
           <div>
             <div class="eyebrow">ACE PROBE</div>
-            <h1>服务器资源</h1>
+            <h1>服务器资源 <span id="container-count" class="count">0</span></h1>
           </div>
         </div>
-        <div class="update-status" id="update-status" role="status">
-          <span class="status-light"></span>
-          <span id="update-text">正在读取数据</span>
+        <div class="header-right">
+          <div class="update-status" id="update-status" role="status">
+            <span class="status-light"></span>
+            <span id="update-text">正在读取数据</span>
+          </div>
+          <div class="resource-tools">
+            <label class="search-box"><span class="search-icon" aria-hidden="true">⌕</span><input id="container-search" type="search" placeholder="搜索容器" autocomplete="off" /></label>
+            <div class="scroll-controls" aria-label="浏览容器卡片">
+              <button type="button" id="scroll-prev" aria-label="向左浏览">‹</button>
+              <button type="button" id="scroll-next" aria-label="向右浏览">›</button>
+            </div>
+          </div>
         </div>
       </header>
 
       <div id="error-message" class="error-message" role="alert" hidden></div>
 
       <main class="dashboard">
-        <aside class="sidebar panel">
-          <div class="section-heading overview-heading"><h2>总览</h2></div>
-          <button type="button" id="host-button" class="container-item host-item active">
-            <span class="container-item-top"><span id="host-light" class="mini-state"></span><span class="container-item-name">宿主机</span></span>
-            <span id="host-values" class="container-item-values">等待采样</span>
-          </button>
-          <div class="section-heading">
-            <h2>容器</h2>
-            <span id="container-count" class="count">0</span>
+        <section class="resources" aria-label="容器卡片">
+          <div id="resource-grid" class="resource-grid">
+            <div id="container-list" class="container-list" aria-label="容器列表"><p class="list-empty">正在读取容器…</p></div>
           </div>
-          <label class="search-box">
-            <span class="search-icon" aria-hidden="true">⌕</span>
-            <input id="container-search" type="search" placeholder="搜索容器" autocomplete="off" />
-          </label>
-          <div id="container-list" class="container-list" aria-label="容器列表">
-            <p class="list-empty">正在读取容器…</p>
-          </div>
-        </aside>
+        </section>
 
         <section class="detail" aria-label="服务器资源曲线">
-          <div class="summary panel">
-            <div class="summary-main">
-              <div class="summary-name">
-                <div class="eyebrow" id="selected-kind">当前范围</div>
-                <div class="summary-title-row">
-                  <h2 id="selected-name">请选择容器</h2>
-                  <span id="selected-state" class="state-badge">—</span>
-                </div>
-                <div id="selected-id" class="container-id">—</div>
-              </div>
-              <div class="summary-metrics">
-                <div class="metric-tile cpu-tile">
-                  <span>CPU</span>
-                  <strong id="current-cpu">—</strong>
-                </div>
-                <div class="metric-tile memory-tile">
-                  <span>内存</span>
-                  <strong id="current-memory">—</strong>
-                </div>
-              </div>
+          <div class="detail-heading">
+            <div class="summary-name">
+              <div class="eyebrow" id="selected-kind">当前范围</div>
+              <div class="summary-title-row"><h2 id="selected-name">请选择容器</h2><span id="selected-state" class="state-badge">—</span><button type="button" id="show-host" class="host-reset" hidden>返回宿主机</button></div>
+              <div id="selected-id" class="container-id">—</div>
             </div>
             <div class="range-group" aria-label="时间范围">
               <button type="button" data-hours="2">2 小时</button>
@@ -79,25 +60,25 @@
           </div>
 
           <div class="chart-grid">
-            <article class="chart-card panel">
+            <article class="chart-card">
               <div class="chart-heading">
                 <div>
                   <div class="chart-kicker cpu-color">CPU</div>
                   <h3>处理器占用</h3>
                 </div>
-                <div id="cpu-readout" class="chart-readout">—</div>
+                <div class="chart-values"><strong id="current-cpu">—</strong><div id="cpu-readout" class="chart-readout">—</div></div>
               </div>
               <div id="cpu-chart" class="chart"></div>
               <div id="cpu-empty" class="chart-empty">当前时间范围暂无数据</div>
             </article>
 
-            <article class="chart-card panel">
+            <article class="chart-card">
               <div class="chart-heading">
                 <div>
                   <div class="chart-kicker memory-color">MEMORY</div>
                   <h3>内存占用</h3>
                 </div>
-                <div id="memory-readout" class="chart-readout">—</div>
+                <div class="chart-values"><strong id="current-memory">—</strong><div id="memory-readout" class="chart-readout">—</div></div>
               </div>
               <div id="memory-chart" class="chart"></div>
               <div id="memory-empty" class="chart-empty">当前时间范围暂无数据</div>

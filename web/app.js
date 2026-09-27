@@ -2,15 +2,16 @@ const elements = {
   status: document.getElementById('update-status'),
   update: document.getElementById('update-text'),
   error: document.getElementById('error-message'),
-  hostButton: document.getElementById('host-button'),
-  hostLight: document.getElementById('host-light'),
-  hostValues: document.getElementById('host-values'),
+  grid: document.getElementById('resource-grid'),
+  scrollPrev: document.getElementById('scroll-prev'),
+  scrollNext: document.getElementById('scroll-next'),
   count: document.getElementById('container-count'),
   search: document.getElementById('container-search'),
   list: document.getElementById('container-list'),
   name: document.getElementById('selected-name'),
   kind: document.getElementById('selected-kind'),
   state: document.getElementById('selected-state'),
+  showHost: document.getElementById('show-host'),
   id: document.getElementById('selected-id'),
   cpu: document.getElementById('current-cpu'),
   memory: document.getElementById('current-memory'),
@@ -29,6 +30,9 @@ let catalog = []
 let latest = null
 let cpuPlot
 let memoryPlot
+let sharedCPUMax = 5
+let sharedMemoryMax = 256
+let hostMemoryMax = 1
 let loading = false
 let historyLoaded = false
 
@@ -50,7 +54,7 @@ function memoryText(value) {
 }
 
 function stateText(state) {
-  const names = { running: '运行中', exited: '已停止', paused: '已暂停', created: '已创建', restarting: '重启中', removed: '已移除' }
+  const names = { running: '运行中', exited: '已停止', paused: '已暂停', created: '已创建', restarting: '重启中' }
   return names[state] || state
 }
 
@@ -82,22 +86,7 @@ async function readDay(day) {
 }
 
 function makeCatalog() {
-  const now = Date.now()
-  const entries = new Map()
-  for (const record of records) {
-    if (record.time < now - 86400000) continue
-    for (const metric of record.containers) {
-      entries.set(metric.id, { ...metric, lastSeen: record.time })
-    }
-  }
-  const currentIDs = new Set(latest?.containers.map((metric) => metric.id) || [])
-  for (const metric of latest?.containers || []) {
-    entries.set(metric.id, { ...metric, lastSeen: latest.time })
-  }
-  catalog = [...entries.values()].map((item) => ({
-    ...item,
-    state: currentIDs.has(item.id) ? item.state : 'removed',
-  }))
+  catalog = [...(latest?.containers || [])]
   catalog.sort((a, b) => {
     if ((a.state === 'running') !== (b.state === 'running')) return a.state === 'running' ? -1 : 1
     return (b.memory_bytes || 0) - (a.memory_bytes || 0) || a.name.localeCompare(b.name)
@@ -108,12 +97,6 @@ function makeCatalog() {
 }
 
 function renderList() {
-  elements.hostButton.classList.toggle('active', selectedID === 'host')
-  const host = latest?.host
-  elements.hostLight.classList.toggle('running', Boolean(host))
-  elements.hostValues.textContent = host
-    ? `CPU ${cpuText(host.cpu_percent)}    内存 ${memoryText(host.memory_bytes)}`
-    : '等待采样'
   const query = elements.search.value.trim().toLowerCase()
   const visible = catalog.filter((item) => item.name.toLowerCase().includes(query))
   elements.count.textContent = String(catalog.length)
@@ -122,38 +105,67 @@ function renderList() {
     empty.className = 'list-empty'
     empty.textContent = catalog.length === 0 ? '暂无容器数据' : '没有匹配的容器'
     elements.list.replaceChildren(empty)
+    updateGridRows()
+    requestAnimationFrame(updateScrollButtons)
     return
   }
 
   const items = visible.map((item) => {
     const button = document.createElement('button')
     button.type = 'button'
-    button.className = `container-item${item.id === selectedID ? ' active' : ''}`
+    button.className = `resource-card container-item${item.id === selectedID ? ' active' : ''}`
     button.title = item.name
+    button.setAttribute('aria-pressed', String(item.id === selectedID))
 
     const top = document.createElement('div')
-    top.className = 'container-item-top'
+    top.className = 'card-top'
+    const name = document.createElement('strong')
+    name.className = 'card-name'
+    name.textContent = item.name
+    const status = document.createElement('span')
+    status.className = 'card-state'
     const state = document.createElement('span')
     state.className = `mini-state${item.state === 'running' ? ' running' : ''}`
-    const name = document.createElement('span')
-    name.className = 'container-item-name'
-    name.textContent = item.name
-    top.append(state, name)
+    status.append(state, stateText(item.state))
+    top.append(name, status)
 
     const values = document.createElement('div')
-    values.className = 'container-item-values'
-    values.textContent = item.state === 'running'
-      ? `CPU ${cpuText(item.cpu_percent)}    内存 ${memoryText(item.memory_bytes)}`
-      : stateText(item.state)
+    values.className = 'card-metrics'
+    values.append(...metricLabels(item.state === 'running' ? item.cpu_percent : null, item.state === 'running' ? item.memory_bytes : null))
     button.append(top, values)
     button.addEventListener('click', () => {
-      selectedID = item.id
+      selectedID = selectedID === item.id ? 'host' : item.id
       renderList()
       renderDetail()
     })
     return button
   })
   elements.list.replaceChildren(...items)
+  updateGridRows()
+  requestAnimationFrame(updateScrollButtons)
+}
+
+function updateGridRows() {
+  const columns = innerWidth <= 650 ? 1 : innerWidth <= 1150 ? 2 : 4
+  elements.grid.classList.toggle('single-row', elements.list.querySelectorAll('.container-item').length <= columns)
+}
+
+function updateScrollButtons() {
+  const max = elements.grid.scrollWidth - elements.grid.clientWidth
+  elements.scrollPrev.disabled = elements.grid.scrollLeft <= 1
+  elements.scrollNext.disabled = elements.grid.scrollLeft >= max - 1
+}
+
+function metricLabels(cpu, memory) {
+  return [['CPU', cpuText(cpu)], ['内存', memoryText(memory)]].map(([label, value]) => {
+    const metric = document.createElement('span')
+    const caption = document.createElement('small')
+    const amount = document.createElement('strong')
+    caption.textContent = label
+    amount.textContent = value
+    metric.append(caption, amount)
+    return metric
+  })
 }
 
 function chartColors() {
@@ -171,10 +183,14 @@ function makePlot(node, readout, color, unit) {
   const format = unit === '%' ? cpuText : (value) => `${numberFormat.format(value)} MiB`
   return new uPlot({
     width: node.clientWidth,
-    height: 230,
+    height: node.clientHeight,
     padding: [12, 10, 0, 0],
     legend: { show: false },
     cursor: { points: { show: false } },
+    scales: { y: { range: () => {
+      if (selectedID === 'host') return [0, unit === '%' ? 100 : hostMemoryMax]
+      return [0, unit === '%' ? sharedCPUMax : sharedMemoryMax]
+    } } },
     axes: [
       {
         stroke: colors.text,
@@ -214,18 +230,43 @@ function createCharts() {
 function renderDetail() {
   const isHost = selectedID === 'host'
   const selected = isHost ? latest?.host : catalog.find((item) => item.id === selectedID)
-  elements.kind.textContent = isHost ? '整机概览' : '当前容器'
+  elements.kind.textContent = isHost ? '宿主机' : '当前容器'
   elements.name.textContent = isHost ? '宿主机' : selected?.name || '请选择容器'
   elements.id.textContent = isHost
     ? `含系统进程与容器 · 总内存 ${memoryText(selected?.memory_total_bytes)}`
     : selected ? selected.id.slice(0, 12) : '—'
   elements.state.textContent = isHost ? '本机' : selected ? stateText(selected.state) : '—'
   elements.state.className = `state-badge${isHost || selected?.state === 'running' ? ' running' : ''}`
+  elements.showHost.hidden = isHost
   elements.cpu.textContent = isHost || selected?.state === 'running' ? cpuText(selected?.cpu_percent) : '—'
   elements.memory.textContent = isHost || selected?.state === 'running' ? memoryText(selected?.memory_bytes) : '—'
 
   const now = Date.now()
   const start = now - selectedHours * 3600000
+  if (isHost) {
+    const total = selected?.memory_total_bytes ?? records.findLast((record) => record.host)?.host.memory_total_bytes
+    hostMemoryMax = total == null ? 1 : total / 1048576
+  } else {
+    const currentIDs = new Set(catalog.map((item) => item.id))
+    let cpuPeak = 0
+    let memoryPeak = 0
+    for (const record of records) {
+      if (record.time < start || record.time > now) continue
+      for (const item of record.containers) {
+        if (!currentIDs.has(item.id)) continue
+        if (item.cpu_percent != null) cpuPeak = Math.max(cpuPeak, item.cpu_percent)
+        if (item.memory_bytes != null) memoryPeak = Math.max(memoryPeak, item.memory_bytes / 1048576)
+      }
+    }
+    if (latest && latest.time >= start && latest.time <= now) {
+      for (const item of catalog) {
+        if (item.cpu_percent != null) cpuPeak = Math.max(cpuPeak, item.cpu_percent)
+        if (item.memory_bytes != null) memoryPeak = Math.max(memoryPeak, item.memory_bytes / 1048576)
+      }
+    }
+    sharedCPUMax = Math.max(5, Math.ceil(cpuPeak * 1.4))
+    sharedMemoryMax = Math.max(256, Math.ceil(memoryPeak * 1.4 / 64) * 64)
+  }
   const times = []
   const cpu = []
   const memory = []
@@ -312,16 +353,50 @@ document.querySelectorAll('[data-hours]').forEach((button) => {
   })
 })
 elements.search.addEventListener('input', renderList)
-elements.hostButton.addEventListener('click', () => {
+elements.showHost.addEventListener('click', () => {
   selectedID = 'host'
   renderList()
   renderDetail()
 })
+document.addEventListener('click', (event) => {
+  if (selectedID === 'host' || event.target.closest('button, input, label, a')) return
+  selectedID = 'host'
+  renderList()
+  renderDetail()
+})
+elements.scrollPrev.addEventListener('click', () => elements.grid.scrollBy({ left: -elements.grid.clientWidth * 0.8, behavior: 'smooth' }))
+elements.scrollNext.addEventListener('click', () => elements.grid.scrollBy({ left: elements.grid.clientWidth * 0.8, behavior: 'smooth' }))
+elements.grid.addEventListener('scroll', updateScrollButtons)
+new ResizeObserver(updateScrollButtons).observe(elements.grid)
+addEventListener('resize', updateGridRows)
+
+let dragStart = null
+let dragged = false
+elements.grid.addEventListener('pointerdown', (event) => {
+  if (event.pointerType !== 'mouse' || event.button !== 0 || elements.grid.scrollWidth <= elements.grid.clientWidth) return
+  dragStart = { x: event.clientX, left: elements.grid.scrollLeft }
+  dragged = false
+})
+document.addEventListener('pointermove', (event) => {
+  if (!dragStart) return
+  const distance = event.clientX - dragStart.x
+  if (Math.abs(distance) <= 5 && !dragged) return
+  dragged = true
+  elements.grid.scrollLeft = dragStart.left - distance
+  event.preventDefault()
+})
+document.addEventListener('pointerup', () => { dragStart = null })
+elements.grid.addEventListener('click', (event) => {
+  if (!dragged) return
+  event.preventDefault()
+  event.stopPropagation()
+  dragged = false
+}, true)
 
 createCharts()
 const resizeObserver = new ResizeObserver(() => {
-  cpuPlot.setSize({ width: elements.cpuChart.clientWidth, height: 230 })
-  memoryPlot.setSize({ width: elements.memoryChart.clientWidth, height: 230 })
+  cpuPlot.setSize({ width: elements.cpuChart.clientWidth, height: elements.cpuChart.clientHeight })
+  memoryPlot.setSize({ width: elements.memoryChart.clientWidth, height: elements.memoryChart.clientHeight })
 })
 resizeObserver.observe(elements.cpuChart)
 resizeObserver.observe(elements.memoryChart)
