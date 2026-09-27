@@ -203,6 +203,15 @@ function makePlot(node, readout, color, unit) {
         stroke: colors.text,
         grid: { stroke: colors.grid, width: 1 },
         ticks: { stroke: colors.grid },
+        splits: (_, __, min, max, incr) => {
+          const values = []
+          for (let value = min; value <= max; value += incr) values.push(value)
+          if (selectedID === 'host' && unit === 'MiB' && values.at(-1) !== max) {
+            if (max - values.at(-1) < incr / 2) values.pop()
+            values.push(max)
+          }
+          return values
+        },
         values: (_, values) => values.map((value) => Number.isFinite(value) ? numberFormat.format(value) : ''),
       },
     ],
